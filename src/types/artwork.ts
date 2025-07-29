@@ -8,7 +8,7 @@ export interface Artwork {
   date_end: number | null;
 }
 
-export interface ApiResponse {
+export interface ArtworkResponse {
   data: Artwork[];
   pagination: {
     total: number;
@@ -16,6 +16,5 @@ export interface ApiResponse {
     offset: number;
     total_pages: number;
     current_page: number;
-    next_url?: string;
   };
 }
