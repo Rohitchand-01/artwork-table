@@ -1,4 +1,3 @@
-import React from 'react';
 import ArtworkTable from './components/ArtworkTable';
 import 'primereact/resources/themes/lara-light-indigo/theme.css';
 import 'primereact/resources/primereact.min.css';

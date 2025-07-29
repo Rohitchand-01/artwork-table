@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { Paginator } from 'primereact/paginator';
-import { Checkbox } from 'primereact/checkbox';
+import { Checkbox, type CheckboxChangeEvent } from 'primereact/checkbox';
+import { InputNumber, type InputNumberValueChangeEvent } from 'primereact/inputnumber';
+
 import { Button } from 'primereact/button';
 import { Dialog } from 'primereact/dialog';
-import { InputNumber } from 'primereact/inputnumber';
 import type { Artwork } from '../types/artwork';
-import { fetchArtworks } from '../services/artworkServices'; // Corrected filename
+import { fetchArtworks } from '../services/artworkServices';
 
 const ArtworkTable: React.FC = () => {
   const [artworks, setArtworks] = useState<Artwork[]>([]);
@@ -74,10 +75,12 @@ const ArtworkTable: React.FC = () => {
     setSelectedRows(newSelectedRows);
   };
 
-  const handleSelectAllOnPage = (checked: boolean) => {
+  const handleSelectAllOnPage = (e: CheckboxChangeEvent) => {
     const newSelectedRows = new Set(selectedRows);
+    const isChecked = e.checked ?? false;
+    
     artworks.forEach(artwork => {
-      if (checked) {
+      if (isChecked) {
         newSelectedRows.add(artwork.id);
       } else {
         newSelectedRows.delete(artwork.id);
@@ -86,7 +89,6 @@ const ArtworkTable: React.FC = () => {
     setSelectedRows(newSelectedRows);
   };
 
-  // --- CRITICAL FIX: Memory-efficient bulk selection ---
   const handleAutoSelect = async () => {
     if (inputCount === null) return;
 
@@ -94,7 +96,6 @@ const ArtworkTable: React.FC = () => {
     const count = inputCount;
 
     if (count > 0) {
-      // Select first N rows without storing all objects in memory
       const newSelectedRows = new Set(selectedRows);
       let remainingToSelect = count;
       let pageToFetch = 1;
@@ -103,7 +104,6 @@ const ArtworkTable: React.FC = () => {
         try {
           const res = await fetchArtworks(pageToFetch);
           if (!res.data || res.data.length === 0) break;
-
           const rowsToTake = Math.min(remainingToSelect, res.data.length);
           for (let i = 0; i < rowsToTake; i++) {
             newSelectedRows.add(res.data[i].id);
@@ -112,20 +112,20 @@ const ArtworkTable: React.FC = () => {
           pageToFetch++;
         } catch (error) {
           console.error(`Error fetching page ${pageToFetch} for bulk select`, error);
-          break; // Stop on error
+          break;
         }
       }
       setSelectedRows(newSelectedRows);
     } else {
-      // Unselect first N of currently selected rows
       const absCount = Math.abs(count);
       const selectedArray = Array.from(selectedRows);
       const toUnselect = selectedArray.slice(0, absCount);
-      
       const newSet = new Set(selectedRows);
       toUnselect.forEach(id => newSet.delete(id));
       setSelectedRows(newSet);
     }
+
+    await loadArtworks(currentPage);
 
     setIsBulkSelecting(false);
     setShowBulkSelectDialog(false);
@@ -133,13 +133,11 @@ const ArtworkTable: React.FC = () => {
   };
 
   const isAllOnPageSelected = artworks.length > 0 && artworks.every(artwork => selectedRows.has(artwork.id));
-  const isIndeterminate = artworks.some(artwork => selectedRows.has(artwork.id)) && !isAllOnPageSelected;
 
   const headerCheckboxTemplate = () => (
     <Checkbox
       checked={isAllOnPageSelected}
-      indeterminate={isIndeterminate}
-      onChange={e => handleSelectAllOnPage(e.checked || false)}
+      onChange={handleSelectAllOnPage}
       tooltip="Select/Unselect all rows on this page"
       tooltipOptions={{ position: 'top' }}
     />
@@ -148,10 +146,10 @@ const ArtworkTable: React.FC = () => {
   const checkboxBodyTemplate = (rowData: Artwork) => (
     <Checkbox
       checked={selectedRows.has(rowData.id)}
-      onChange={e => handleRowSelection(rowData.id, e.checked || false)}
+      onChange={(e: CheckboxChangeEvent) => handleRowSelection(rowData.id, e.checked ?? false)}
     />
   );
-
+  
   const dialogFooter = (
     <div>
       <Button label="Cancel" icon="pi pi-times" onClick={() => setShowBulkSelectDialog(false)} className="p-button-text" />
@@ -196,7 +194,7 @@ const ArtworkTable: React.FC = () => {
             <InputNumber
               id="inputCount"
               value={inputCount}
-              onValueChange={(e) => setInputCount(e.value)}
+              onValueChange={(e: InputNumberValueChangeEvent) => setInputCount(e.value ?? null)}
               placeholder="e.g., 50 to select, -10 to unselect"
               autoFocus
               className="w-full"
