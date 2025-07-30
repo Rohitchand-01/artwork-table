@@ -1,69 +1,41 @@
-# React + TypeScript + Vite
+# ArtworkTable React Component
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React component for displaying and managing a paginated table of artworks with advanced selection capabilities.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Fetches artworks data from the Art Institute of Chicago API.
+- Displays artwork details in a responsive, sortable data table.
+- Pagination support with PrimeReact Paginator.
+- Individual row selection via checkboxes.
+- Select all across **all pages** by toggling a single header checkbox (without loading delays).
+- Bulk selection dropdown allowing numeric input to select/unselect artworks across pages.
+- Persistent selection state saved in `localStorage`.
+- Modern React hooks and TypeScript implementation.
+- Clean, accessible UI built with PrimeReact, Tailwind CSS styling, and React Icons.
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Installation
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+Make sure you have the following dependencies installed in your React project:
 
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
+- `react`
+- `react-dom`
+- `typescript`
+- `primereact`
+- `primeicons`
+- `react-icons`
+- `tailwindcss` (optional for styling)
+- etc.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+(Install dependencies as appropriate for your project setup.)
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Usage
 
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+1. Add your `ArtworkTable.tsx` component file to your React project within your components folder.
+
+2. Import and use it in your app:
+

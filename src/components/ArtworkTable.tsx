@@ -22,6 +22,7 @@ const ArtworkTable: React.FC = () => {
   const [isBulkSelecting, setIsBulkSelecting] = useState<boolean>(false);
   const [refreshCounter, setRefreshCounter] = useState<number>(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<any>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem("selectedArtworks");
@@ -37,7 +38,6 @@ const ArtworkTable: React.FC = () => {
             setSelectedRows(new Set(parsed));
           }
         } catch (e) {
-          console.error("Failed to parse selectedArtworks from localStorage", e);
         }
       }
     }
@@ -68,6 +68,14 @@ const ArtworkTable: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (showBulkSelectDialog && inputRef.current) {
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+    }
+  }, [showBulkSelectDialog]);
+
   const loadArtworks = async (page: number) => {
     setLoading(true);
     try {
@@ -76,7 +84,6 @@ const ArtworkTable: React.FC = () => {
       setTotalRecords(response.pagination.total);
       setTotalPages(response.pagination.total_pages);
     } catch (error) {
-      console.error('Failed to load artworks:', error);
       setArtworks([]);
       setTotalRecords(0);
       setTotalPages(0);
@@ -93,7 +100,6 @@ const ArtworkTable: React.FC = () => {
   const handleRowSelection = (rowId: number, checked: boolean) => {
     if (allSelected) {
       if (!checked) {
-        // User unchecked a row: switch allSelected off, and select all except this one
         setAllSelected(false);
         const newSelected = new Set<number>();
         for (let i = 1; i <= totalRecords; i++) {
@@ -103,7 +109,6 @@ const ArtworkTable: React.FC = () => {
         }
         setSelectedRows(newSelected);
       } else {
-        // User checked a previously unchecked row: remove it from unselected (selectedRows)
         setSelectedRows(prev => {
           const copy = new Set(prev);
           copy.delete(rowId);
@@ -151,23 +156,30 @@ const ArtworkTable: React.FC = () => {
       </span>
 
       {showBulkSelectDialog && (
-        <div className="absolute top-full left-[100px] -translate-x-1/2 mt-2 bg-white border border-gray-300 shadow-xl p-2 rounded-lg z-50 w-[150px]">
-          <div className="p-2">
-            <InputNumber
-              value={inputCount}
-              onValueChange={(e: InputNumberValueChangeEvent) => setInputCount(e.value ?? null)}
-              placeholder="Enter count"
-              className="w-[100px] border-0 focus:ring-0 focus:shadow-none text-center"
-              onKeyDown={(e) => e.key === 'Enter' && handleAutoSelect()}
-            />
-            <Button
-              label="Submit"
-              className="w-full bg-blue-500 hover:bg-green-600 text-white mt-2 cursor-pointer"
-              onClick={handleAutoSelect}
-              loading={isBulkSelecting}
-              disabled={inputCount === null || inputCount === 0 || isBulkSelecting}
-            />
-          </div>
+        <div className="absolute top-full left-[100px] -translate-x-1/2 mt-2 bg-white border border-gray-300 shadow-xl p-4 rounded-lg z-50 w-[180px] box-border flex flex-col items-center gap-3 overflow-hidden">
+          <InputNumber
+            ref={inputRef}
+            value={inputCount}
+            onValueChange={(e: InputNumberValueChangeEvent) => setInputCount(e.value ?? null)}
+            placeholder="Enter count"
+            className="w-[150px] border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-black  text-center box-border"
+            
+            min={-totalRecords}
+            max={totalRecords}
+            
+            buttonLayout="horizontal"
+            decrementButtonClassName="bg-gray-200 hover:bg-gray-300 border border-r-0 rounded-l px-2"
+            incrementButtonClassName="bg-gray-200 hover:bg-gray-300 border border-l-0 rounded-r px-2"
+            inputClassName="outline-none"
+          />
+          <Button
+            label="Submit"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+            onClick={handleAutoSelect}
+            loading={isBulkSelecting}
+            disabled={inputCount === null || inputCount === 0 || isBulkSelecting}
+            type="button"
+          />
         </div>
       )}
     </div>
@@ -216,7 +228,6 @@ const ArtworkTable: React.FC = () => {
           remainingToSelect -= rowsToTake;
           pageToFetch++;
         } catch (error) {
-          console.error(`Error fetching page ${pageToFetch} for bulk select`, error);
           break;
         }
       }
