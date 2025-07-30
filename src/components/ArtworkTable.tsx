@@ -16,6 +16,7 @@ const ArtworkTable: React.FC = () => {
   const [totalRecords, setTotalRecords] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(0);
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+  const [allSelected, setAllSelected] = useState<boolean>(false);
   const [showBulkSelectDialog, setShowBulkSelectDialog] = useState<boolean>(false);
   const [inputCount, setInputCount] = useState<number | null>(null);
   const [isBulkSelecting, setIsBulkSelecting] = useState<boolean>(false);
@@ -24,14 +25,20 @@ const ArtworkTable: React.FC = () => {
 
   useEffect(() => {
     const stored = localStorage.getItem("selectedArtworks");
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          setSelectedRows(new Set(parsed));
+    const storedAllSelected = localStorage.getItem("allSelected");
+    if (storedAllSelected === "true") {
+      setAllSelected(true);
+    } else {
+      setAllSelected(false);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            setSelectedRows(new Set(parsed));
+          }
+        } catch (e) {
+          console.error("Failed to parse selectedArtworks from localStorage", e);
         }
-      } catch (e) {
-        console.error("Failed to parse selectedArtworks from localStorage", e);
       }
     }
   }, []);
@@ -41,9 +48,15 @@ const ArtworkTable: React.FC = () => {
   }, [currentPage]);
 
   useEffect(() => {
-    localStorage.setItem("selectedArtworks", JSON.stringify(Array.from(selectedRows)));
-    setRefreshCounter(prev => prev + 1);
+    if (!allSelected) {
+      localStorage.setItem("selectedArtworks", JSON.stringify(Array.from(selectedRows)));
+    }
   }, [selectedRows]);
+
+  useEffect(() => {
+    localStorage.setItem("allSelected", allSelected ? "true" : "false");
+    setRefreshCounter(prev => prev + 1);
+  }, [allSelected]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -78,31 +91,106 @@ const ArtworkTable: React.FC = () => {
   };
 
   const handleRowSelection = (rowId: number, checked: boolean) => {
-    setSelectedRows(prevSelectedRows => {
-      const newSelectedRows = new Set(prevSelectedRows);
-      if (checked) {
-        newSelectedRows.add(rowId);
+    if (allSelected) {
+      if (!checked) {
+        // User unchecked a row: switch allSelected off, and select all except this one
+        setAllSelected(false);
+        const newSelected = new Set<number>();
+        for (let i = 1; i <= totalRecords; i++) {
+          if (i !== rowId) {
+            newSelected.add(i);
+          }
+        }
+        setSelectedRows(newSelected);
       } else {
-        newSelectedRows.delete(rowId);
+        // User checked a previously unchecked row: remove it from unselected (selectedRows)
+        setSelectedRows(prev => {
+          const copy = new Set(prev);
+          copy.delete(rowId);
+          return copy;
+        });
       }
-      return newSelectedRows;
-    });
+    } else {
+      setSelectedRows(prevSelectedRows => {
+        const newSelectedRows = new Set(prevSelectedRows);
+        if (checked) {
+          newSelectedRows.add(rowId);
+        } else {
+          newSelectedRows.delete(rowId);
+        }
+        return newSelectedRows;
+      });
+    }
   };
 
-  const handleSelectAllOnPage = (e: CheckboxChangeEvent) => {
+  const handleSelectAllFromAllPages = (e: CheckboxChangeEvent) => {
     const isChecked = e.checked ?? false;
-    setSelectedRows(prevSelectedRows => {
-      const newSelectedRows = new Set(prevSelectedRows);
-      artworks.forEach(artwork => {
-        if (isChecked) {
-          newSelectedRows.add(artwork.id);
-        } else {
-          newSelectedRows.delete(artwork.id);
-        }
-      });
-      return newSelectedRows;
-    });
+    if (isChecked) {
+      setAllSelected(true);
+      setSelectedRows(new Set());
+    } else {
+      setAllSelected(false);
+      setSelectedRows(new Set());
+    }
   };
+
+  const headerCheckboxTemplate = () => (
+    <div className="relative flex items-center gap-2" ref={dropdownRef}>
+      <Checkbox
+        checked={allSelected || (selectedRows.size > 0 && selectedRows.size === totalRecords)}
+        onChange={handleSelectAllFromAllPages}
+        tooltip="Select/Unselect all rows from all pages"
+        tooltipOptions={{ position: 'top' }}
+        className="p-checkbox-box border-2 border-gray-300 bg-white rounded w-[25px]"
+      />
+      <span
+        className="text-gray-600 text-lg cursor-pointer hover:text-gray-800 transition-colors select-none"
+        onClick={() => setShowBulkSelectDialog(prev => !prev)}
+      >
+        <RiArrowDropDownLine />
+      </span>
+
+      {showBulkSelectDialog && (
+        <div className="absolute top-full left-[100px] -translate-x-1/2 mt-2 bg-white border border-gray-300 shadow-xl p-2 rounded-lg z-50 w-[150px]">
+          <div className="p-2">
+            <InputNumber
+              value={inputCount}
+              onValueChange={(e: InputNumberValueChangeEvent) => setInputCount(e.value ?? null)}
+              placeholder="Enter count"
+              className="w-[100px] border-0 focus:ring-0 focus:shadow-none text-center"
+              onKeyDown={(e) => e.key === 'Enter' && handleAutoSelect()}
+            />
+            <Button
+              label="Submit"
+              className="w-full bg-blue-500 hover:bg-green-600 text-white mt-2 cursor-pointer"
+              onClick={handleAutoSelect}
+              loading={isBulkSelecting}
+              disabled={inputCount === null || inputCount === 0 || isBulkSelecting}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const checkboxBodyTemplate = useMemo(() => (rowData: Artwork) => {
+    const checked = allSelected ? !selectedRows.has(rowData.id) : selectedRows.has(rowData.id);
+    return (
+      <Checkbox
+        key={`checkbox-${rowData.id}-${checked}`}
+        checked={checked}
+        onChange={(e: CheckboxChangeEvent) => handleRowSelection(rowData.id, e.checked ?? false)}
+        className="p-checkbox-box border-2 border-gray-200 rounded w-[25px]"
+      />
+    );
+  }, [selectedRows, allSelected, totalRecords]);
+
+  const artworksWithSelection = useMemo(() => {
+    return artworks.map(artwork => ({
+      ...artwork,
+      _selected: allSelected ? !selectedRows.has(artwork.id) : selectedRows.has(artwork.id),
+    }));
+  }, [artworks, selectedRows, allSelected]);
 
   const handleAutoSelect = async () => {
     if (inputCount === null || inputCount === 0) {
@@ -132,6 +220,7 @@ const ArtworkTable: React.FC = () => {
           break;
         }
       }
+      setAllSelected(false);
     } else {
       const absCount = Math.abs(count);
       const selectedArray = Array.from(selectedRows);
@@ -140,68 +229,10 @@ const ArtworkTable: React.FC = () => {
       idsToUnselect.forEach(id => newSelectedRows.delete(id));
     }
     setSelectedRows(newSelectedRows);
-    await loadArtworks(currentPage);
     setIsBulkSelecting(false);
     setShowBulkSelectDialog(false);
     setInputCount(null);
   };
-
-  const isAllOnPageSelected = artworks.length > 0 && artworks.every(artwork => selectedRows.has(artwork.id));
-
-  const headerCheckboxTemplate = () => (
-    <div className="relative flex items-center gap-2" ref={dropdownRef}>
-      <Checkbox
-        checked={isAllOnPageSelected}
-        onChange={handleSelectAllOnPage}
-        tooltip="Select/Unselect all rows on this page"
-        tooltipOptions={{ position: 'top' }}
-        className="p-checkbox-box border-2 border-gray-300 bg-white rounded w-[25px]"
-      />
-      <span
-        className="text-gray-600 text-lg cursor-pointer hover:text-gray-800 transition-colors select-none"
-        onClick={() => setShowBulkSelectDialog(prev => !prev)}
-      >
-        <RiArrowDropDownLine />
-      </span>
-
-      {showBulkSelectDialog && (
-        <div className="absolute top-full left-[100px] -translate-x-1/2 mt-2 bg-white border border-gray-300 shadow-xl p-2 rounded-lg z-50 w-[150px]">
-          <div className="p-2 ">
-            <InputNumber
-              value={inputCount}
-              onValueChange={(e: InputNumberValueChangeEvent) => setInputCount(e.value ?? null)}
-              placeholder="Enter count"
-              className="w-[100px] border-0 focus:ring-0 focus:shadow-none text-center"
-              onKeyDown={(e) => e.key === 'Enter' && handleAutoSelect()}
-            />
-            <Button
-              label="Submit"
-              className="w-full bg-blue-500 hover:bg-green-600 text-white mt-2 cursor-pointer"
-              onClick={handleAutoSelect}
-              loading={isBulkSelecting}
-              disabled={inputCount === null || inputCount === 0 || isBulkSelecting}
-            />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
-  const checkboxBodyTemplate = useMemo(() => (rowData: Artwork) => (
-    <Checkbox
-      key={`checkbox-${rowData.id}-${selectedRows.has(rowData.id)}`}
-      checked={selectedRows.has(rowData.id)}
-      onChange={(e: CheckboxChangeEvent) => handleRowSelection(rowData.id, e.checked ?? false)}
-      className="p-checkbox-box border-2 border-gray-200 rounded w-[25px]"
-    />
-  ), [selectedRows]);
-
-  const artworksWithSelection = useMemo(() => {
-    return artworks.map(artwork => ({
-      ...artwork,
-      _selected: selectedRows.has(artwork.id)
-    }));
-  }, [artworks, selectedRows]);
 
   return (
     <div className=' bg-gray-50 min-h-screen'>
